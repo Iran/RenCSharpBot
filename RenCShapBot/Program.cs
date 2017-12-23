@@ -20,6 +20,7 @@ namespace RenCShapBot
     {
         private static SQLiteConnection _dbConnection;
         public static IrcClient irc = new IrcClient();
+        public static TcpClass tcp = new TcpClass(44441);
 
 
         static void Main(string[] args)
@@ -47,6 +48,7 @@ namespace RenCShapBot
             {
                 while (true)
                 {
+                    tcp.Think();
                     irc.ListenOnce();
                     Thread.Sleep(1);
                 }
