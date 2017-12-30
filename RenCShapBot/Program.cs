@@ -49,7 +49,7 @@ namespace RenCShapBot
                 while (true)
                 {
                     tcp.Think();
-                    irc.ListenOnce();
+                    irc.ListenOnce(false);
                     Thread.Sleep(1);
                 }
             }
