@@ -156,7 +156,8 @@ namespace RenCShapBot
 
             SaveEntity(new ChatLogLine(nick, realname, host, channel, msg, permission));
 
-            irc.SendMessage(SendType.Message, channel, IrcConstants.IrcColor + IrcColors.LightRed + " message in red");
+           // irc.SendMessage(SendType.Message, channel, IrcConstants.IrcColor + IrcColors.LightRed + " message in red");
+            tcp.Send("IRCMSG {0} {1} {2} {3}", channel, permission, nick, msg);
         }
 
         private static char GetUserPermissionChar(NonRfcChannelUser user)

@@ -50,7 +50,7 @@ namespace RenCShapBot
                 byte[] buf = new byte[1024];
                 int Receive = socket.Receive(buf);
                 string msg = BytesToString(buf);
-                Console.WriteLine("MSG FROM FDS: {0}", msg);
+                HandleFDSMessages(msg);
                 lastHeartBeatreceive = GetMillisecondsTicks();
                 return;
             }
@@ -73,7 +73,7 @@ namespace RenCShapBot
                 }
                 return;
             }
-            if (lastSendInterval > 1000)
+            if (lastSendInterval > 5000)
             {
             try
             {
@@ -123,6 +123,32 @@ namespace RenCShapBot
         {
                 socket.Send(StringToBytes(msg));
            
+        }
+
+        public void Send(string format, params object[] args)
+        {
+            socket.Send(StringToBytes(String.Format(format, args)));
+
+        }
+
+        public void HandleFDSMessages(string msg)
+        {
+            string[] msgArr = msg.Split(' ');
+
+            Console.WriteLine("MSG FROM FDS: {0}", msg);
+
+            if (msgArr[0] == null) return;
+            string Type = msgArr[0];
+
+            if (Type == "IRC") {
+                string ircMsg = String.Join(" ", msgArr.Skip(2).ToArray());
+                string[] ircMsgArr = ircMsg.Split('\n');
+
+                foreach (string temp in ircMsgArr)
+                {
+                    Program.irc.SendMessage(Meebey.SmartIrc4net.SendType.Message, msgArr[1], temp);
+                }
+            }
         }
     }
 }
