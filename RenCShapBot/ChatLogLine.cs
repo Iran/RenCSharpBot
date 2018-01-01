@@ -19,7 +19,7 @@ namespace RenCShapBot
             Channel = channel;
             Message = message;
             Permission = permission;
-            DateTime = DateTime.Now;
+            DateTime = DateTime.UtcNow;
         }
 
         [Key]

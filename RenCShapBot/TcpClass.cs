@@ -146,6 +146,11 @@ namespace RenCShapBot
                 if (msgArr[0] == null) return;
                 string Type = msgArr[0];
 
+                if (Type == "PLAYERJOIN")
+                {
+                    Program.Handle_Player_Join_FDS_Message(msgArr);
+                }
+
                 if (Type == "REBOOT")
                 {
                     Program.irc.SendMessage(Meebey.SmartIrc4net.SendType.Message, "#renCsharpBot", "Rebooting bot..");

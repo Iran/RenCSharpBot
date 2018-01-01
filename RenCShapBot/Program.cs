@@ -15,6 +15,8 @@ using Meebey.SmartIrc4net;
 using System.Collections;
 using System.Reflection;
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 
 namespace RenCShapBot
 {
@@ -124,6 +126,20 @@ namespace RenCShapBot
             [Permission] NVARCHAR(1) NOT NULL,
             [DateTime] DATETIME NOT NULL
             )");
+
+            _dbConnection.ExecuteNonQuery(@"
+        CREATE TABLE IF NOT EXISTS [PlayerJoin] (
+            [PlayerJoinID] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            [Nick] NVARCHAR(128) NOT NULL,
+            [IsWolUser] BOOLEAN NOT NULL,
+            [ScriptsRevision] BIGINT NOT NULL,
+            [ScriptsVersion] FLOAT NOT NULL,
+            [Team] NVARCHAR(128) NOT NULL,
+            [IP] NVARCHAR(32) NOT NULL,
+            [SerialHash] NVARCHAR(64) NOT NULL,
+            [HostName] NVARCHAR(256) NOT NULL,
+            [DateTime] DATETIME NOT NULL
+            )");
     }
 
         // We are calling this from the RAW MESSAGE event handler as the QUIT event handler is
@@ -143,6 +159,48 @@ namespace RenCShapBot
         private static void OnUserPartChannel(object sender, PartEventArgs e)
         {
             Console.WriteLine("Channel PART: nick = {0}, channel = {1}", e.Data.Nick, e.Data.Channel);
+        }
+
+        internal static void Handle_Player_Join_FDS_Message(string[] msgArr)
+        {
+            //if (msgArr[0] != "PLAYERJOIN") return;
+            String Nick = msgArr[1];
+            String Team = msgArr[2];
+            String SerialHash = msgArr[3];
+            bool IsWolUser = int.Parse(msgArr[4]) == 1 ? true : false;
+            float Version = float.Parse(msgArr[5]);
+            long revision = long.Parse(msgArr[6]);
+            String IP = msgArr[7];
+            String HostName = GetHostName(IP);
+
+            var client = new WebClient();
+            
+
+            var response = client.DownloadString("http://freegeoip.net/json/");
+
+            var releases = JArray.Parse(response);
+
+            SaveEntity(new PlayerJoin(Nick, IsWolUser, revision, Version, Team, IP, SerialHash, HostName));
+        }
+
+        static public string GetHostName(string ipAddress)
+        {
+            try
+            {
+                IPHostEntry entry = Dns.GetHostEntry(ipAddress);
+                if (entry != null)
+                {
+                    return entry.HostName;
+                }
+            }
+            catch (SocketException ex)
+            {
+                //unknown host or
+                //not every IP has a name
+                //log exception (manage it)
+            }
+
+            return null;
         }
 
         private static void OnChannelMessage(object sender, IrcEventArgs e)
