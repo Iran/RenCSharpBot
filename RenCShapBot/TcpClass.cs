@@ -8,6 +8,7 @@ using Dapper.Contrib;
 using Dapper.Contrib.Extensions;
 using System.Net;
 
+
 namespace RenCShapBot
 {
     public class TcpClass
@@ -133,20 +134,32 @@ namespace RenCShapBot
 
         public void HandleFDSMessages(string msg)
         {
-            string[] msgArr = msg.Split(' ');
+            string[] sendArr = msg.Split('\r');
+            foreach (string sendMsg_ in sendArr) {
+                string sendMsg = sendMsg_.Trim('\0').Trim();
+                if (sendMsg == "") continue;
 
-            Console.WriteLine("MSG FROM FDS: {0}", msg);
+                string[] msgArr = sendMsg.Split(' ');
 
-            if (msgArr[0] == null) return;
-            string Type = msgArr[0];
+                Console.WriteLine("MSG FROM FDS: {0}", sendMsg);
 
-            if (Type == "IRC") {
-                string ircMsg = String.Join(" ", msgArr.Skip(2).ToArray());
-                string[] ircMsgArr = ircMsg.Split('\n');
+                if (msgArr[0] == null) return;
+                string Type = msgArr[0];
 
-                foreach (string temp in ircMsgArr)
+                if (Type == "REBOOT")
                 {
-                    Program.irc.SendMessage(Meebey.SmartIrc4net.SendType.Message, msgArr[1], temp);
+                    Program.irc.SendMessage(Meebey.SmartIrc4net.SendType.Message, "#renCsharpBot", "Rebooting bot..");
+                    Program.Restart();
+                }
+
+                if (Type == "IRC") {
+                    string ircMsg = String.Join(" ", msgArr.Skip(2).ToArray());
+                    string[] ircMsgArr = ircMsg.Split('\n');
+
+                    foreach (string temp in ircMsgArr)
+                    {
+                        Program.irc.SendMessage(Meebey.SmartIrc4net.SendType.Message, msgArr[1], temp);
+                    }
                 }
             }
         }

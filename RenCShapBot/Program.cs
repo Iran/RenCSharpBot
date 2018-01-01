@@ -13,6 +13,8 @@ using System.IO;
 using System.Threading;
 using Meebey.SmartIrc4net;
 using System.Collections;
+using System.Reflection;
+using System.Diagnostics;
 
 namespace RenCShapBot
 {
@@ -156,27 +158,41 @@ namespace RenCShapBot
 
             SaveEntity(new ChatLogLine(nick, realname, host, channel, msg, permission));
 
-           // irc.SendMessage(SendType.Message, channel, IrcConstants.IrcColor + IrcColors.LightRed + " message in red");
+           //irc.SendMessage(SendType.Message, channel, IrcConstants.IrcColor + IrcColors.LightRed + " message in red");
             tcp.Send("IRCMSG {0} {1} {2} {3}", channel, permission, nick, msg);
         }
 
-        private static char GetUserPermissionChar(NonRfcChannelUser user)
+
+    public static void Restart()
+        {
+            var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
+            irc.SendMessage(SendType.Message, "#renCsharpbot", location.AbsolutePath);
+
+            ProcessStartInfo startInfo = new ProcessStartInfo(location.AbsolutePath);
+            Process.Start(startInfo);
+            Environment.Exit(0);
+        }
+
+    private static char GetUserPermissionChar(NonRfcChannelUser user)
         {
             if (user.IsOwner) return '~';
             if (user.IsChannelAdmin) return '&';
             if (user.IsIrcOp) return '@';
             if (user.IsHalfop) return '%';
             if (user.IsVoice) return '+';
-            return ' ';
+            return '?';
         }
 
         public static void OnPrivateMessage(object sender, IrcEventArgs e)
         {
-            var channel = e.Data.Channel;
-            if (e.Data.RawMessage.StartsWith("!"))
-            {
-                irc.SendMessage(SendType.Message, channel, "command found");
-            }
+            var nick = e.Data.Nick;
+            //var realname = user.Realname;
+            //var channel = user.Channel;
+            //var host = user.Host;
+            var msg = e.Data.Message;
+            char permission = '?';
+
+            tcp.Send("IRCMSG {0} {1} {2} {3}", nick, permission, nick, msg);
         }
 
         // this method handles when we receive "ERROR" from the IRC server
