@@ -17,6 +17,7 @@ using System.Reflection;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using Newtonsoft.Json;
 
 namespace RenCShapBot
 {
@@ -138,6 +139,14 @@ namespace RenCShapBot
             [IP] NVARCHAR(32) NOT NULL,
             [SerialHash] NVARCHAR(64) NOT NULL,
             [HostName] NVARCHAR(256) NOT NULL,
+            [Country] NVARCHAR(256),
+            [Region] NVARCHAR(256),
+            [City] NVARCHAR(128),
+            [ZipCode] NVARCHAR(128),
+            [TimeZone] NVARCHAR(128),
+            [Latitude] NVARCHAR(128),
+            [Longitude] NVARCHAR(128),
+            [MetroCode] NVARCHAR(128),
             [DateTime] DATETIME NOT NULL
             )");
     }
@@ -174,13 +183,40 @@ namespace RenCShapBot
             String HostName = GetHostName(IP);
 
             var client = new WebClient();
+
+            try
+            {
+                // TODO: set FDS to WOL mode so I can get IPs correctly
+                var response = client.DownloadString("http://freegeoip.net/json/" + IP);
+
+                var geoIp = JsonConvert.DeserializeObject<GeoIpInfo>(response);
+
+                SaveEntity(new PlayerJoin(Nick, IsWolUser, revision, Version, Team, IP, SerialHash, HostName,
+                    geoIp.country_name, geoIp.region_name, geoIp.city, geoIp.zip_code, geoIp.time_zone, geoIp.latitude, geoIp.longitude, geoIp.metro_code ));
+
+                tcp.Send("JOINPLAYER {0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11}", 
+                   Nick, IP, SerialHash, HostName, GetNullIfEmpty(geoIp.country_name), GetNullIfEmpty(geoIp.region_name),
+                   GetNullIfEmpty(geoIp.city), GetNullIfEmpty(geoIp.zip_code), GetNullIfEmpty(geoIp.time_zone), GetNullIfEmpty(geoIp.latitude),
+                   GetNullIfEmpty(geoIp.longitude), GetNullIfEmpty(geoIp.metro_code));
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine("Exception occured while trying to retrieve GeoIP info");
+                Console.WriteLine(ex.Message);
+
+                SaveEntity(new PlayerJoin(Nick, IsWolUser, revision, Version, Team, IP, SerialHash, HostName,
+                    "", "", "", "", "", "", "", ""));
+
+                tcp.Send("JOINPLAYER {0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11}",
+                Nick, IP, SerialHash, HostName, "null", "null", "null", "null", "null", "null", "null", "null");
+            }
+
             
+        }
 
-            var response = client.DownloadString("http://freegeoip.net/json/");
-
-            var releases = JArray.Parse(response);
-
-            SaveEntity(new PlayerJoin(Nick, IsWolUser, revision, Version, Team, IP, SerialHash, HostName));
+        static public string GetNullIfEmpty(string str)
+        {
+            return str == "" ? "null" : str;
         }
 
         static public string GetHostName(string ipAddress)
