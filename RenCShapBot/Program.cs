@@ -26,7 +26,10 @@ namespace RenCShapBot
         private static SQLiteConnection _dbConnection;
         public static IrcClient irc = new IrcClient();
         public static TcpClass tcp = new TcpClass(44441);
-
+        public static string AdminChannel = "#renCsharpbot-admin";
+        public static string PublicChannel = "#renCsharpbot";
+        public static string BotName = "RenCsharpBot";
+        public static string BotDescription = "Renegade bot in C#";
 
         static void Main(string[] args)
         {
@@ -82,6 +85,15 @@ namespace RenCShapBot
             }
         }
 
+        private static List<E> GetAll<E>() where E : class
+        {
+            CreateAndOpenDb();
+            using (var _connection = _dbConnection)
+            {
+                return _connection.GetAll<E>().ToList();
+            }
+        }
+
         static void SaveEntity<E>(E entity) where E : class
         {
             CreateAndOpenDb();
@@ -131,7 +143,7 @@ namespace RenCShapBot
             _dbConnection.ExecuteNonQuery(@"
         CREATE TABLE IF NOT EXISTS [PlayerJoin] (
             [PlayerJoinID] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-            [Nick] NVARCHAR(128) NOT NULL,
+            [Nick] NVARCHAR(128) NOT NULL UNIQUE,
             [IsWolUser] BOOLEAN NOT NULL,
             [ScriptsRevision] BIGINT NOT NULL,
             [ScriptsVersion] FLOAT NOT NULL,
@@ -149,7 +161,26 @@ namespace RenCShapBot
             [MetroCode] NVARCHAR(128),
             [DateTime] DATETIME NOT NULL
             )");
-    }
+
+            _dbConnection.ExecuteNonQuery(@"
+        CREATE TABLE IF NOT EXISTS [RegisteredUser] (
+            [RegisteredUserID] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            [NickName] NVARCHAR(128) NOT NULL,
+            [ModFlags] NVARCHAR(128) NOT NULL,
+            [Permission] NVARCHAR(1) NOT NULL,
+            [AuthViaWOL] BOOLEAN NOT NULL,
+            [AuthViaIP] BOOLEAN NOT NULL,
+            [AuthViaSerialHash] BOOLEAN NOT NULL,
+            [AuthViaPassword] BOOLEAN NOT NULL
+            )");
+
+            _dbConnection.ExecuteNonQuery(@"
+        CREATE TABLE IF NOT EXISTS [RegisteredIRCNick] (
+            [RegisteredIRCNickID] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            [NickName] NVARCHAR(128) NOT NULL UNIQUE,
+            [RegisteredUserID] INTEGER NOT NULL
+            )");
+        }
 
         // We are calling this from the RAW MESSAGE event handler as the QUIT event handler is
         // fired after the library has removed all the channel data for this user, while in 
@@ -252,15 +283,40 @@ namespace RenCShapBot
 
             SaveEntity(new ChatLogLine(nick, realname, host, channel, msg, permission));
 
-           //irc.SendMessage(SendType.Message, channel, IrcConstants.IrcColor + IrcColors.LightRed + " message in red");
-            tcp.Send("IRCMSG {0} {1} {2} {3}", channel, permission, nick, msg);
+            //irc.SendMessage(SendType.Message, channel, IrcConstants.IrcColor + IrcColors.LightRed + " message in red");
+            string modFlags = GetModFlags(GetRegisteredUserByIRCNick(nick));
+
+            tcp.Send("IRCMSG {0} {1} {2} {3} {4}", channel, permission, nick, modFlags, msg);
+        }
+
+        public static string GetModFlags(RegisteredUser r)
+        {
+            string modFlags = "";
+            if (r != null)
+            {
+                modFlags = r.ModFlags;
+            }
+            return GetNullIfEmpty(modFlags);
+        }
+
+        public static RegisteredUser GetRegisteredUser(string nick)
+        {
+            return GetAll<RegisteredUser>().Where(u => u.NickName.ToLower() == nick.ToLower()).FirstOrDefault();
+        }
+
+        public static RegisteredUser GetRegisteredUserByIRCNick(string ircnick)
+        {
+            RegisteredIRCNick ri = GetAll<RegisteredIRCNick>().Where(u => u.NickName.ToLower() == ircnick.ToLower()).FirstOrDefault();
+            if (ri == null) return null;
+
+            return GetEntityById<RegisteredUser>(ri.RegisteredUserID);
         }
 
 
     public static void Restart()
         {
             var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
-            irc.SendMessage(SendType.Message, "#renCsharpbot", location.AbsolutePath);
+            irc.SendMessage(SendType.Message, Program.PublicChannel, location.AbsolutePath);
 
             ProcessStartInfo startInfo = new ProcessStartInfo(location.AbsolutePath);
             Process.Start(startInfo);
@@ -347,7 +403,6 @@ namespace RenCShapBot
             // the server we want to connect to, could be also a simple string
             serverlist = new string[] { "irc.miners-zone.net" };
             int port = 6667;
-            string channel = "#renCsharpBot";
             try
             {
                 // here we try to connect to the server and exceptions get handled
@@ -362,9 +417,10 @@ namespace RenCShapBot
             try
             {
                 // here we logon and register our nickname and so on 
-                irc.Login("renCsharpBot", "Renegade C# Bot");
+                irc.Login(Program.BotName, Program.BotDescription);
                 // join the channel
-                irc.RfcJoin(channel);
+                irc.RfcJoin(Program.PublicChannel);
+                irc.RfcJoin(Program.AdminChannel);
             }
             catch (ConnectionException)
             {

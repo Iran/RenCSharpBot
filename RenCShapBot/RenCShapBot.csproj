@@ -69,9 +69,11 @@
     <Compile Include="PlayerJoin.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RegisteredIRCNick.cs" />
     <Compile Include="SqliteExtensions.cs" />
     <Compile Include="TcpClass.cs" />
     <Compile Include="TestEntity.cs" />
+    <Compile Include="RegisteredUser.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

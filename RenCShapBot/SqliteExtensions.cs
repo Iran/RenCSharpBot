@@ -28,5 +28,10 @@ namespace RenCShapBot
             // Use Dapper to execute the given query
             connection.Execute(commandText);
         }
+
+        /* public static List<T> GetAll<T>(this SQLiteConnection connection)
+        {
+            return connection.GetAll<T>().ToList();
+        } */
     }
 }
