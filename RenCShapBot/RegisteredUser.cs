@@ -21,5 +21,12 @@ namespace RenCShapBot
         public bool AuthViaIP { get; set; }
         public bool AuthViaSerialHash { get; set; }
         public bool AuthViaPassword { get; set; }
+        public bool AuthViaHostname { get; set; }
+
+        public int LinkedToRegisteredUserID { get; set; }
+        public String SerialHash { get; set; }
+        public String HostName { get; set; }
+        public String IP { get; set; }
+        public String Password { get; set; }
     }
 }

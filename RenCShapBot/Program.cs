@@ -165,16 +165,21 @@ namespace RenCShapBot
             _dbConnection.ExecuteNonQuery(@"
         CREATE TABLE IF NOT EXISTS [RegisteredUser] (
             [RegisteredUserID] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            [LinkedToRegisteredUserID] INTEGER NOT NULL,
             [NickName] NVARCHAR(128) NOT NULL,
             [ModFlags] NVARCHAR(128) NOT NULL,
             [Permission] NVARCHAR(1) NOT NULL,
             [AuthViaWOL] BOOLEAN NOT NULL,
-            [AuthViaIP] BOOLEAN NOT NULL,
             [AuthViaSerialHash] BOOLEAN NOT NULL,
-            [AuthViaPassword] BOOLEAN NOT NULL
-            )");
+            [SerialHash] NVARCHAR(128) NOT NULL,
+            [AuthViaHostName] BOOLEAN NOT NULL,
+            [HostName] NVARCHAR(128) NOT NULL,
+            [AuthViaIP] BOOLEAN NOT NULL,
+            [IP] NVARCHAR(128) NOT NULL,
+            [AuthViaPassword] BOOLEAN NOT NULL,
+            [Password] NVARCHAR(128) NOT NULL )");
 
-            _dbConnection.ExecuteNonQuery(@"
+        _dbConnection.ExecuteNonQuery(@"
         CREATE TABLE IF NOT EXISTS [RegisteredIRCNick] (
             [RegisteredIRCNickID] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
             [NickName] NVARCHAR(128) NOT NULL UNIQUE,
@@ -211,6 +216,7 @@ namespace RenCShapBot
             float Version = float.Parse(msgArr[5]);
             long revision = long.Parse(msgArr[6]);
             String IP = msgArr[7];
+            String Password = msgArr[8];
             String HostName = GetHostName(IP);
 
             var client = new WebClient();
@@ -225,10 +231,10 @@ namespace RenCShapBot
                 SaveEntity(new PlayerJoin(Nick, IsWolUser, revision, Version, Team, IP, SerialHash, HostName,
                     geoIp.country_name, geoIp.region_name, geoIp.city, geoIp.zip_code, geoIp.time_zone, geoIp.latitude, geoIp.longitude, geoIp.metro_code ));
 
-                tcp.Send("JOINPLAYER {0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11}", 
-                   Nick, IP, SerialHash, HostName, GetNullIfEmpty(geoIp.country_name), GetNullIfEmpty(geoIp.region_name),
-                   GetNullIfEmpty(geoIp.city), GetNullIfEmpty(geoIp.zip_code), GetNullIfEmpty(geoIp.time_zone), GetNullIfEmpty(geoIp.latitude),
-                   GetNullIfEmpty(geoIp.longitude), GetNullIfEmpty(geoIp.metro_code));
+                tcp.Send("JOINPLAYER\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}", 
+                   Nick, IP, SerialHash, HostName, GetWhiteSpaceIfStringIsEmpty(geoIp.country_name), GetWhiteSpaceIfStringIsEmpty(geoIp.region_name),
+                   GetWhiteSpaceIfStringIsEmpty(geoIp.city), GetWhiteSpaceIfStringIsEmpty(geoIp.zip_code), GetWhiteSpaceIfStringIsEmpty(geoIp.time_zone), GetWhiteSpaceIfStringIsEmpty(geoIp.latitude),
+                   GetWhiteSpaceIfStringIsEmpty(geoIp.longitude), GetWhiteSpaceIfStringIsEmpty(geoIp.metro_code));
             }
             catch(Exception ex)
             {
@@ -238,16 +244,32 @@ namespace RenCShapBot
                 SaveEntity(new PlayerJoin(Nick, IsWolUser, revision, Version, Team, IP, SerialHash, HostName,
                     "", "", "", "", "", "", "", ""));
 
-                tcp.Send("JOINPLAYER {0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11}",
-                Nick, IP, SerialHash, HostName, "null", "null", "null", "null", "null", "null", "null", "null");
+                tcp.Send("JOINPLAYER\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}]\t{9}\t{10}\t{11}",
+                Nick, IP, SerialHash, HostName, " ", " ", " ", " ", " ", " ", " ", " ");
             }
 
+            RegisteredUser r = GetRegisteredUser(Nick);
+
+            if (r != null)
+            {
+
+                tcp.Send("AUTH\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}", r.NickName, GetWhiteSpaceIfStringIsEmpty(r.Permission), 
+                    GetWhiteSpaceIfStringIsEmpty(r.ModFlags), GetIntValueFromBool(r.AuthViaPassword), GetWhiteSpaceIfStringIsEmpty(r.Password),
+                    GetIntValueFromBool(r.AuthViaHostname), GetWhiteSpaceIfStringIsEmpty(r.HostName), GetIntValueFromBool(r.AuthViaIP), 
+                    GetWhiteSpaceIfStringIsEmpty(r.IP), GetIntValueFromBool(r.AuthViaSerialHash), 
+                    GetWhiteSpaceIfStringIsEmpty(r.SerialHash), GetIntValueFromBool(r.AuthViaWOL));
+            }
             
         }
 
-        static public string GetNullIfEmpty(string str)
+        static public string GetWhiteSpaceIfStringIsEmpty(string str)
         {
-            return str == "" ? "null" : str;
+            return str == "" ? " " : str;
+        }
+
+        static public int GetIntValueFromBool(bool b)
+        {
+            return b == true ? 1 : 0;
         }
 
         static public string GetHostName(string ipAddress)
@@ -286,7 +308,7 @@ namespace RenCShapBot
             //irc.SendMessage(SendType.Message, channel, IrcConstants.IrcColor + IrcColors.LightRed + " message in red");
             string modFlags = GetModFlags(GetRegisteredUserByIRCNick(nick));
 
-            tcp.Send("IRCMSG {0} {1} {2} {3} {4}", channel, permission, nick, modFlags, msg);
+            tcp.Send("IRCMSG\t{0}\t{1}\t{2}\t{3}\t{4}", channel, permission, nick, modFlags, msg);
         }
 
         public static string GetModFlags(RegisteredUser r)
@@ -296,7 +318,7 @@ namespace RenCShapBot
             {
                 modFlags = r.ModFlags;
             }
-            return GetNullIfEmpty(modFlags);
+            return GetWhiteSpaceIfStringIsEmpty(modFlags);
         }
 
         public static RegisteredUser GetRegisteredUser(string nick)
@@ -342,7 +364,7 @@ namespace RenCShapBot
             var msg = e.Data.Message;
             char permission = '?';
 
-            tcp.Send("IRCMSG {0} {1} {2} {3}", nick, permission, nick, msg);
+            tcp.Send("IRCMSG\t{0}\t{1}\t{2}\t{3}", nick, permission, nick, msg);
         }
 
         // this method handles when we receive "ERROR" from the IRC server
