@@ -74,7 +74,7 @@ namespace RenCShapBot
                 }
                 return;
             }
-            if (lastSendInterval > 5000)
+            if (lastSendInterval > 1000)
             {
             try
             {
@@ -122,7 +122,12 @@ namespace RenCShapBot
 
         public void Send(string msg)
         {
-                socket.Send(StringToBytes(msg));
+            byte[] msgBytes = StringToBytes(msg);
+            byte[] bytes = new byte[msgBytes.Length + 1];
+            msgBytes.CopyTo(bytes, 0);
+            bytes[bytes.Length-1] = 0x0a; // newline character
+
+            socket.Send(bytes, bytes.Length, 0);
            
         }
 
@@ -151,10 +156,31 @@ namespace RenCShapBot
                     Program.Handle_Player_Join_FDS_Message(msgArr);
                 }
 
+                if (Type == "AUTHPASS")
+                {
+                    Program.Handle_Auth_Password_FDS_Message(msgArr);
+                }
+
                 if (Type == "REBOOT")
                 {
                     Program.irc.SendMessage(Meebey.SmartIrc4net.SendType.Message, "#renCsharpBot", "Rebooting bot..");
                     Program.Restart();
+                }
+                if (Type == "AUTOREC")
+                {
+                    Program.Handle_Auto_Rec_FDS_Message(msgArr, sendMsg);
+                }
+                if (Type == "REC")
+                {
+                    Program.Handle_Rec_FDS_Message(msgArr, sendMsg);
+                }
+                if (Type == "SETJOIN")
+                {
+                    Program.Handle_Set_Join_Message_FDS_Message(msgArr, sendMsg);
+                }
+                if (Type == "DELJOIN")
+                {
+                    Program.Handle_Delete_Join_Message_FDS_Message(msgArr);
                 }
 
                 if (Type == "IRC") {

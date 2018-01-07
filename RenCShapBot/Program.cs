@@ -104,6 +104,17 @@ namespace RenCShapBot
             }
         }
 
+        static void DeleteEntity<E>(E entity) where E : class
+        {
+            CreateAndOpenDb();
+
+            using (var _connection = _dbConnection)
+            {
+                _connection.Delete(entity);
+            }
+        }
+
+
         public static void CreateAndOpenDb()
         {
             var dbFilePath = "./TestDb.sqlite";
@@ -185,6 +196,22 @@ namespace RenCShapBot
             [NickName] NVARCHAR(128) NOT NULL UNIQUE,
             [RegisteredUserID] INTEGER NOT NULL
             )");
+
+            _dbConnection.ExecuteNonQuery(@"
+        CREATE TABLE IF NOT EXISTS [Recommendation] (
+            [RecommendationID] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            [NickName] NVARCHAR(128) NOT NULL,
+            [Reason] NVARCHAR(128) NOT NULL,
+            [RecommendedBy] NVARCHAR(128) NOT NULL,
+            [Type] NVARCHAR(128) NOT NULL,
+            [DateTime] DATETIME NOT NULL
+            )");
+            _dbConnection.ExecuteNonQuery(@"
+        CREATE TABLE IF NOT EXISTS [JoinMessage] (
+            [JoinMessageID] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            [NickName] NVARCHAR(128) NOT NULL,
+            [Message] NVARCHAR(128) NOT NULL
+            )");
         }
 
         // We are calling this from the RAW MESSAGE event handler as the QUIT event handler is
@@ -204,6 +231,57 @@ namespace RenCShapBot
         private static void OnUserPartChannel(object sender, PartEventArgs e)
         {
             Console.WriteLine("Channel PART: nick = {0}, channel = {1}", e.Data.Nick, e.Data.Channel);
+        }
+
+        internal static void Handle_Auth_Password_FDS_Message(string[] msgArr)
+        {
+            String Nick = msgArr[1];
+            String Password = msgArr[2];
+
+            var r = GetRegisteredUser(Nick);
+            if (r != null)
+            {
+                tcp.Send("AUTHPASSWORD\t{0}\t{1}\t{2}\t{3}", Nick, r.ModFlags, r.Permission, r.Password == Password ? "MATCH" : "NOMATCH");
+            }
+        }
+
+        internal static void Handle_Auto_Rec_FDS_Message(string[] msgArr, string msg)
+        {
+            String Type = msgArr[1];
+            string Target = msgArr[2];
+            string Reason = msg.Substring(msgArr[0].Length + msgArr[1].Length + msgArr[2].Length + 2);
+
+            SaveEntity(new Recommendation(Target, "Type", "", Reason, DateTime.UtcNow));
+            tcp.Send("MSG\t{0} has been automatically recommended for {1}", Target, Reason);
+
+        }
+
+        internal static void Handle_Set_Join_Message_FDS_Message(string[] msgArr, string msg)
+        {
+            string Nick = msgArr[1];
+            string message = msg.Substring(msgArr[0].Length);
+
+            SaveEntity(new JoinMessage(Nick, message));
+        }
+
+        internal static void Handle_Delete_Join_Message_FDS_Message(string[] msgArr)
+        {
+            string Nick = msgArr[1];
+            JoinMessage jm = GetAll<JoinMessage>().Where(j => j.NickName == Nick).FirstOrDefault();
+            if (jm != null)
+            {
+                DeleteEntity(jm);
+            }
+        }
+
+        internal static void Handle_Rec_FDS_Message(string[] msgArr, string msg)
+        {
+            string Target = msgArr[1];
+            string RecommendedBy = msgArr[2];
+            string Reason = msg.Substring(msgArr[0].Length + msgArr[1].Length + msgArr[2].Length + 2);
+
+            SaveEntity(new Recommendation(Target, "USERREC", RecommendedBy, Reason, DateTime.UtcNow));
+            tcp.Send("MSG\t{0} has been recommended by {1} for {2}", Target, RecommendedBy, Reason);
         }
 
         internal static void Handle_Player_Join_FDS_Message(string[] msgArr)
@@ -259,7 +337,12 @@ namespace RenCShapBot
                     GetWhiteSpaceIfStringIsEmpty(r.IP), GetIntValueFromBool(r.AuthViaSerialHash), 
                     GetWhiteSpaceIfStringIsEmpty(r.SerialHash), GetIntValueFromBool(r.AuthViaWOL));
             }
-            
+
+            JoinMessage jm = GetAll<JoinMessage>().Where(j => j.NickName == Nick).FirstOrDefault();
+            if (jm != null)
+            {
+                tcp.Send("[{0}] {1}", jm.NickName, jm.Message);
+            }
         }
 
         static public string GetWhiteSpaceIfStringIsEmpty(string str)
