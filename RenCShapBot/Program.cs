@@ -267,7 +267,7 @@ namespace RenCShapBot
         internal static void Handle_Delete_Join_Message_FDS_Message(string[] msgArr)
         {
             string Nick = msgArr[1];
-            JoinMessage jm = GetAll<JoinMessage>().Where(j => j.NickName == Nick).FirstOrDefault();
+            JoinMessage jm = GetAll<JoinMessage>().Where(j => j.NickName.ToLower() == Nick.ToLower()).FirstOrDefault();
             if (jm != null)
             {
                 DeleteEntity(jm);
@@ -338,7 +338,7 @@ namespace RenCShapBot
                     GetWhiteSpaceIfStringIsEmpty(r.SerialHash), GetIntValueFromBool(r.AuthViaWOL));
             }
 
-            JoinMessage jm = GetAll<JoinMessage>().Where(j => j.NickName == Nick).FirstOrDefault();
+            JoinMessage jm = GetAll<JoinMessage>().Where(j => j.NickName.ToLower() == Nick.ToLower()).FirstOrDefault();
             if (jm != null)
             {
                 tcp.Send("[{0}] {1}", jm.NickName, jm.Message);
